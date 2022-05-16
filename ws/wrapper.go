@@ -69,6 +69,7 @@ loop:
 }
 
 func (w *Wrapper) readLoop() {
+	defer close(w.messages)
 	for {
 		w.mut.Lock()
 		t, message, err := w.c.ReadMessage()

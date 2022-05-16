@@ -13,9 +13,20 @@ type ErrorPayload struct {
 	Meta   interface{} `json:"meta,omitempty"`
 }
 
+type Challenge struct {
+	Payload string `json:"payload"`
+}
+
 func CreateClientError(payload ErrorPayload) Message {
 	return Message{
 		Type: "CLIENT_ERROR",
+		Data: payload,
+	}
+}
+
+func CreateServerError(payload ErrorPayload) Message {
+	return Message{
+		Type: "SERVER_ERROR",
 		Data: payload,
 	}
 }

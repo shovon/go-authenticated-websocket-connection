@@ -4,10 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"net/http"
 	"strings"
@@ -22,15 +22,21 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
-var ErrClientIdWasNotSupplied = errors.New("the client ID was not supplied by the client")
-var ErrBadClientIdFormat = errors.New("the client ID is of a bad format. Expected a base64 string, that encodes a buffer of 67 bytes but got something else")
-var ErrUnsuportedClientIdVersion = errors.New("the client ID version is unsupported. The first two bytes of the base64-encoded value of the client ID must be an int16 value equal exactly to 0x01")
-var ErrUnsupportedECDSAKeyType = errors.New("the ECDSA key must be of type 4, as represented by the first byte of the key itself (3rd byte in the buffer)")
-var ErrFailedToReadRandomNumbers = errors.New("in an attempt to generate the challenge, the server failed to read the adequate number bytes needed for our challenge")
+var (
+	ErrClientIdWasNotSupplied    = errors.New("the client ID was not supplied by the client")
+	ErrBadClientIdFormat         = errors.New("the client ID is of a bad format. Expected a base64 string, that encodes a buffer of 67 bytes but got something else")
+	ErrUnsuportedClientIdVersion = errors.New("the client ID version is unsupported. The first two bytes of the base64-encoded value of the client ID must be an int16 value equal exactly to 0x01")
+	ErrUnsupportedECDSAKeyType   = errors.New("the ECDSA key must be of type 4, as represented by the first byte of the key itself (3rd byte in the buffer)")
+	ErrFailedToReadRandomNumbers = errors.New("in an attempt to generate the challenge, the server failed to read the adequate number bytes needed for our challenge")
+	ErrNotAChallengeResponse     = errors.New("the message received was not a challenge response")
+)
 
 // We will assume that errors coming from this function will always be errors
 // that were caused by the client.
 func getkeyFromClientId(clientId string) (*ecdsa.PublicKey, error) {
+	// TODO: move all of this to a separate file, and write some rudimentary Go
+	//   tests
+
 	if len(clientId) <= 0 {
 		return nil, ErrClientIdWasNotSupplied
 	}
@@ -59,7 +65,7 @@ func getkeyFromClientId(clientId string) (*ecdsa.PublicKey, error) {
 
 const challengeByteLength = 128
 
-// It will be safe to assume that any error coming from this function is
+// It will be safe to assume that any error coming from this function is a client
 func getChallengePayload() (plaintext string, err error) {
 	b := make([]byte, challengeByteLength)
 	n, err := rand.Read(b)
@@ -72,8 +78,50 @@ func getChallengePayload() (plaintext string, err error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func parseChallengeResponse(m ws.Message) {
+// It will be safe to assume that any error coming from this function is
+func parseChallengeResponse(m ws.Message) (plaintext []byte, signature []byte, err error) {
+	var clientMessage clientmessage.Message
+	err = json.Unmarshal(m.Message, &clientMessage)
+	if err != nil {
+		return nil, nil, err
+	}
 
+	if clientMessage.Type != "CHALLENGE_RESPONSE" {
+		return nil, nil, err
+	}
+
+	var cr clientmessage.ChallengeResponse
+	err = json.Unmarshal(clientMessage.Data, &cr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	plaintext, err = base64.RawStdEncoding.DecodeString(cr.Payload)
+	if err != nil {
+		return nil, nil, err
+	}
+	signature, err = base64.RawStdEncoding.DecodeString(cr.Signature)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return plaintext, signature, err
+}
+
+func verifySignature(key *ecdsa.PublicKey, pt, sig []byte) bool {
+	if len(sig) < 64 {
+		return false
+	}
+
+	rBuf, sBuf := sig[0:32], sig[32:]
+	r := &big.Int{}
+	s := &big.Int{}
+	r.SetBytes(rBuf)
+	s.SetBytes(sBuf)
+
+	hash := sha256.New().Sum(pt)
+
+	return ecdsa.Verify(key, hash, r, s)
 }
 
 func main() {
@@ -138,9 +186,10 @@ func main() {
 				return
 			}
 
-			var clientMessage clientmessage.Message
-			err := json.Unmarshal(m.Message, &clientMessage)
+			pt, sig, err := parseChallengeResponse(m)
+
 			if err != nil {
+				log.Info().Msg("Client provided a bad message. Looping")
 				err := conn.WriteJSON(
 					servermessages.CreateClientError(
 						servermessages.ErrorPayload{
@@ -157,20 +206,33 @@ func main() {
 				continue
 			}
 
-			if clientMessage.Type != "CHALLENGE_RESPONSE" {
+			if !verifySignature(key, pt, sig) {
+				log.Info().Msg("Client provided a message where the signature does not match. Closing the connection")
 				err := conn.WriteJSON(
-					servermessages.CreateClientError(servermessages.ErrorPayload{
-						Title:  "Not a challenge response",
-						Detail: fmt.Sprintf("Expected a challenge payload if type CHALLENGE_RESPONSE, but got message of type %s", clientMessage.Type),
-					}),
+					servermessages.CreateClientError(
+						servermessages.ErrorPayload{
+							Title:  "Signature verification failed",
+							Detail: "The signature failed to verify",
+							Meta:   m.Message,
+						},
+					),
 				)
 				if err != nil {
 					log.Error().Msg(err.Error())
 					return
 				}
-				continue
+				return
 			}
 
+			break
+		}
+
+		for {
+			_, ok := <-conn.MessagesChannel()
+			if !ok {
+				log.Info().Msg("Attempted to get a message from the client, but they might have closed the connection. Ending the connection")
+				return
+			}
 		}
 	})
 }

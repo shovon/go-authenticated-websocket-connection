@@ -8,9 +8,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	mathrand "math/rand"
 	"net/http"
 	"strings"
+	"time"
 	"wsauth/messages/clientmessage"
 	"wsauth/messages/servermessages"
 	"wsauth/ws"
@@ -124,6 +127,10 @@ func verifySignature(key *ecdsa.PublicKey, pt, sig []byte) bool {
 	return ecdsa.Verify(key, hash, r, s)
 }
 
+func randInt(max int) int {
+	return int(mathrand.Float32() * float32(max))
+}
+
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/path", func(w http.ResponseWriter, r *http.Request) {
@@ -227,12 +234,29 @@ func main() {
 			break
 		}
 
-		for {
-			_, ok := <-conn.MessagesChannel()
-			if !ok {
-				log.Info().Msg("Attempted to get a message from the client, but they might have closed the connection. Ending the connection")
-				return
+		go func() {
+			for !conn.HasStopped() {
+				<-time.After(time.Second * time.Duration(randInt(10)))
+				conn.WriteJSON(servermessages.Message{Type: "TEXT_MESSAGE", Data: "Cool"})
+			}
+		}()
+
+		for msg := range conn.MessagesChannel() {
+			var m clientmessage.Message
+			json.Unmarshal(msg.Message, &m)
+			if m.Type != "TEXT_MESSAGE" {
+				fmt.Printf("Got message of %s from %s", m.Type, clientId)
+				continue
+			}
+			var str string
+			err := m.UnmarshalData(&str)
+			if err != nil {
+				fmt.Printf("Failed to get message body")
+			} else {
+				fmt.Printf("Got message from client %s: %s", clientId, str)
 			}
 		}
+
+		log.Info().Msg("Client closed the connection. Ending the connection")
 	})
 }

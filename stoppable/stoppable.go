@@ -10,13 +10,15 @@ import "sync"
 //
 // Must be created using the `NewStoppable` function!
 type Stoppable struct {
-	once    *sync.Once
-	stopped chan struct{}
+	once       *sync.Once
+	mutex      *sync.RWMutex
+	stopped    chan struct{}
+	hasStopped bool
 }
 
 // NewStoppable creates a new Stoppable instance
 func NewStoppable() Stoppable {
-	return Stoppable{&sync.Once{}, make(chan struct{})}
+	return Stoppable{&sync.Once{}, &sync.RWMutex{}, make(chan struct{}), false}
 }
 
 // OnStopped returns a channel where it will close once the stoppable has been
@@ -33,6 +35,16 @@ func (s Stoppable) OnStopped() <-chan struct{} {
 // Stop stops the stoppable.
 func (s Stoppable) Stop() {
 	s.once.Do(func() {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
 		close(s.stopped)
+		s.hasStopped = true
 	})
+}
+
+// HasStopped determines if the stoppable has stopped
+func (s Stoppable) HasStopped() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.hasStopped
 }

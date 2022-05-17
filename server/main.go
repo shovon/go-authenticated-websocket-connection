@@ -23,12 +23,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 var (
 	ErrClientIdWasNotSupplied    = errors.New("the client ID was not supplied by the client")
 	ErrBadClientIdFormat         = errors.New("the client ID is of a bad format. Expected a base64 string, that encodes a buffer of 67 bytes but got something else")
-	ErrUnsuportedClientIdVersion = errors.New("the client ID version is unsupported. The first two bytes of the base64-encoded value of the client ID must be an int16 value equal exactly to 0x01")
+	ErrUnsuportedClientIdVersion = errors.New("tshe client ID version is unsupported. The first two bytes of the base64-encoded value of the client ID must be an int16 value equal exactly to 0x01")
 	ErrUnsupportedECDSAKeyType   = errors.New("the ECDSA key must be of type 4, as represented by the first byte of the key itself (3rd byte in the buffer)")
 	ErrFailedToReadRandomNumbers = errors.New("in an attempt to generate the challenge, the server failed to read the adequate number bytes needed for our challenge")
 	ErrNotAChallengeResponse     = errors.New("the message received was not a challenge response")
@@ -133,6 +135,10 @@ func randInt(max int) int {
 
 func main() {
 	router := mux.NewRouter()
+	// TODO: turn this into its own module, so that the auth process is abstracted
+	//   away.
+	//
+	// Perhaps turn it into a module.
 	router.HandleFunc("/path", func(w http.ResponseWriter, r *http.Request) {
 		log.Info().Msg("New connection from client")
 
@@ -259,4 +265,7 @@ func main() {
 
 		log.Info().Msg("Client closed the connection. Ending the connection")
 	})
+
+	log.Info().Msg("Server listening on port 8000")
+	http.ListenAndServe(":8000", router)
 }

@@ -21,22 +21,23 @@
         }
       }
 
-      async function getSecp256R1Jwk(publicKey) {
-        const jwk = await crypto.subtle.exportKey("jwk", publicKey);
-        assert(typeof jwk.x === "string");
-        assert(typeof jwk.y === "string");
-        assert(jwk.x.length === 32);
-        assert(jwk.y.length === 32);
-        return jwk;
-      }
-
+      //https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
       const _keyStr =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
+      //https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
+      function removePaddingChars(input) {
+        var lkey = _keyStr.indexOf(input.charAt(input.length - 1));
+        if (lkey == 64) {
+          return input.substring(0, input.length - 1);
+        }
+        return input;
+      }
+
+      // Code stolen from here: https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
       function decodeBase64(input, arrayBuffer) {
-        //get last chars to see if are valid
-        input = this.removePaddingChars(input);
-        input = this.removePaddingChars(input);
+        input = removePaddingChars(input);
+        input = removePaddingChars(input);
 
         var bytes = parseInt((input.length / 4) * 3, 10);
 
@@ -132,7 +133,7 @@
 
       async function getClientId(publicKey) {
         const raw = await crypto.subtle.exportKey("raw", publicKey);
-        const prefix = new ArrayBuffer(new Uint8Array([0x0, 0x1]));
+        const prefix = new Uint8Array([0x0, 0x1]);
         const clientIdBuf = concatBuffers(prefix, raw);
         return encodeBase64(clientIdBuf);
       }
@@ -141,6 +142,7 @@
         const keys = await generateKeys();
         const clientId = await getClientId(keys.publicKey);
         console.log(clientId);
+        console.log(decodeBase64(clientId));
       })().catch(console.error);
     </script>
   </body>

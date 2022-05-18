@@ -142,8 +142,6 @@
       (async function () {
         const keys = await generateKeys();
         const clientId = await getClientId(keys.publicKey);
-        console.log(clientId);
-        console.log(decodeBase64(clientId));
 
         const ws = new WebSocket(
           `ws://localhost:8000/path?client_id=${encodeURIComponent(clientId)}`
@@ -162,7 +160,15 @@
                 keys.privateKey,
                 payload
               )
-              .then((signature) => {
+              .then(async (signature) => {
+                console.log(payload, signature);
+                const verification = await crypto.subtle.verify(
+                  { name: "ECDSA", hash: { name: "SHA-256" } },
+                  keys.publicKey,
+                  signature,
+                  payload
+                );
+                console.log(verification);
                 ws.send(
                   JSON.stringify({
                     type: "CHALLENGE_RESPONSE",

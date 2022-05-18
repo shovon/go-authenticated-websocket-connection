@@ -13,5 +13,5 @@ func (m Message) UnmarshalData(v any) error {
 
 type ChallengeResponse struct {
 	Payload   string `json:"payload"`
-	Signature string `json:"string"`
+	Signature string `json:"signature"`
 }

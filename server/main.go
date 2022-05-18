@@ -124,9 +124,9 @@ func verifySignature(key *ecdsa.PublicKey, pt, sig []byte) bool {
 	r.SetBytes(rBuf)
 	s.SetBytes(sBuf)
 
-	hash := sha256.New().Sum(pt)
+	hash := sha256.Sum256(pt)
 
-	return ecdsa.Verify(key, hash, r, s)
+	return ecdsa.Verify(key, hash[:], r, s)
 }
 
 func randInt(max int) int {

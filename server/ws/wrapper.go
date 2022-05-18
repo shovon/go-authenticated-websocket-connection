@@ -27,15 +27,14 @@ type Message struct {
 // A wrapper for Gorilla's WebSocket
 type Wrapper struct {
 	stoppable.Stoppable
-	mut      *sync.Mutex
+	writeMut *sync.Mutex
+	readMut  *sync.Mutex
 	c        *websocket.Conn
 	messages chan Message
 }
 
 func NewWrapper(c *websocket.Conn) Wrapper {
-	var mut sync.Mutex
-
-	wrapper := Wrapper{stoppable.NewStoppable(), &mut, c, make(chan Message)}
+	wrapper := Wrapper{stoppable.NewStoppable(), &sync.Mutex{}, &sync.Mutex{}, c, make(chan Message)}
 
 	go wrapper.pingLoop()
 	go wrapper.readLoop()
@@ -71,9 +70,9 @@ loop:
 func (w *Wrapper) readLoop() {
 	defer close(w.messages)
 	for {
-		w.mut.Lock()
+		w.readMut.Lock()
 		t, message, err := w.c.ReadMessage()
-		w.mut.Unlock()
+		w.readMut.Unlock()
 		if err != nil {
 			w.Stop()
 			return
@@ -83,15 +82,15 @@ func (w *Wrapper) readLoop() {
 }
 
 func (w *Wrapper) WriteMessage(messageType int, data []byte) error {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	w.writeMut.Lock()
+	defer w.writeMut.Unlock()
 	w.c.SetWriteDeadline(time.Now().Add(writeWait))
 	return w.c.WriteMessage(messageType, data)
 }
 
 func (w *Wrapper) WriteJSON(v interface{}) error {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	w.writeMut.Lock()
+	defer w.writeMut.Unlock()
 	return w.c.WriteJSON(v)
 }
 

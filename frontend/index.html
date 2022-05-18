@@ -71,6 +71,7 @@
         return uarray;
       }
 
+      // Code stolen from https://gist.github.com/jonleighton/958841
       function encodeBase64(arrayBuffer) {
         var base64 = "";
         var encodings =
@@ -143,6 +144,43 @@
         const clientId = await getClientId(keys.publicKey);
         console.log(clientId);
         console.log(decodeBase64(clientId));
+
+        const ws = new WebSocket(
+          `ws://localhost:8000/path?client_id=${encodeURIComponent(clientId)}`
+        );
+        ws.addEventListener("message", (message) => {
+          const { type, data } = JSON.parse(message.data);
+          console.log(type, data);
+          if (type === "CHALLENGE") {
+            const payload = decodeBase64(data.payload);
+            crypto.subtle
+              .sign(
+                {
+                  name: "ECDSA",
+                  hash: { name: "SHA-256" },
+                },
+                keys.privateKey,
+                payload
+              )
+              .then((signature) => {
+                ws.send(
+                  JSON.stringify({
+                    type: "CHALLENGE_RESPONSE",
+                    data: {
+                      payload: data.payload,
+                      signature: encodeBase64(signature),
+                    },
+                  })
+                );
+              });
+          }
+        });
+        ws.addEventListener("open", () => {
+          console.log("Opened");
+        });
+        ws.addEventListener("close", () => {
+          console.log("WebSocket connection closed");
+        });
       })().catch(console.error);
     </script>
   </body>

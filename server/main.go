@@ -45,7 +45,7 @@ func getkeyFromClientId(clientId string) (*ecdsa.PublicKey, error) {
 	if len(clientId) <= 0 {
 		return nil, ErrClientIdWasNotSupplied
 	}
-	buf, err := base64.RawStdEncoding.DecodeString(clientId)
+	buf, err := base64.StdEncoding.DecodeString(clientId)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func parseChallengeResponse(m ws.Message) (plaintext []byte, signature []byte, e
 	}
 
 	if clientMessage.Type != "CHALLENGE_RESPONSE" {
-		return nil, nil, err
+		return nil, nil, ErrNotAChallengeResponse
 	}
 
 	var cr clientmessage.ChallengeResponse
@@ -101,11 +101,11 @@ func parseChallengeResponse(m ws.Message) (plaintext []byte, signature []byte, e
 		return nil, nil, err
 	}
 
-	plaintext, err = base64.RawStdEncoding.DecodeString(cr.Payload)
+	plaintext, err = base64.StdEncoding.DecodeString(cr.Payload)
 	if err != nil {
 		return nil, nil, err
 	}
-	signature, err = base64.RawStdEncoding.DecodeString(cr.Signature)
+	signature, err = base64.StdEncoding.DecodeString(cr.Signature)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -141,6 +141,7 @@ func main() {
 	// Perhaps turn it into a module.
 	router.HandleFunc("/path", func(w http.ResponseWriter, r *http.Request) {
 		log.Info().Msg("New connection from client")
+		defer log.Info().Msg("Connection closed")
 
 		// Set up the conection
 		c, err := upgrader.Upgrade(w, r, nil)
@@ -160,6 +161,9 @@ func main() {
 				servermessages.ErrorPayload{
 					Title:  "Bad client ID was supplied",
 					Detail: err.Error(),
+					Meta: map[string]string{
+						"client_id": clientId,
+					},
 				},
 			))
 			if err != nil {
@@ -226,13 +230,15 @@ func main() {
 						servermessages.ErrorPayload{
 							Title:  "Signature verification failed",
 							Detail: "The signature failed to verify",
-							Meta:   m.Message,
+							Meta: map[string][]byte{
+								"payload":   pt,
+								"signature": sig,
+							},
 						},
 					),
 				)
 				if err != nil {
 					log.Error().Msg(err.Error())
-					return
 				}
 				return
 			}

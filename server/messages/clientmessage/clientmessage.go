@@ -3,7 +3,7 @@ package clientmessage
 import "encoding/json"
 
 type Message struct {
-	Type string          `json:"string"`
+	Type string          `json:"type"`
 	Data json.RawMessage `json:"data"`
 }
 

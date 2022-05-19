@@ -246,10 +246,20 @@ func main() {
 			break
 		}
 
+		err = conn.WriteJSON(servermessages.MessageNoData{Type: "CONNECTED"})
+		if err != nil {
+			log.Info().Err(err).Msg("An error occurred attempting to tell the client that they connected successfully")
+			return
+		}
+
 		go func() {
 			for !conn.HasStopped() {
 				<-time.After(time.Second * time.Duration(randInt(10)))
-				conn.WriteJSON(servermessages.Message{Type: "TEXT_MESSAGE", Data: "Cool"})
+				err := conn.WriteJSON(servermessages.Message{Type: "TEXT_MESSAGE", Data: "Cool"})
+				if err != nil {
+					log.Info().Err(err).Msg("An error occurred attempting to tell the client that they connected successfully")
+					return
+				}
 			}
 		}()
 

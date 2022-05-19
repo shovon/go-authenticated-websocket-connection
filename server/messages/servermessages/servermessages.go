@@ -5,6 +5,10 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
+type MessageNoData struct {
+	Type string `json:"type"`
+}
+
 type ErrorPayload struct {
 	ID     string      `json:"id,omitempty"`
 	Code   string      `json:"code,omitempty"`

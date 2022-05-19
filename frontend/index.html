@@ -21,11 +21,11 @@
         }
       }
 
-      //https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
+      // https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
       const _keyStr =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
-      //https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
+      // https://github.com/danguer/blog-examples/blob/master/js/base64-binary.js
       function removePaddingChars(input) {
         var lkey = _keyStr.indexOf(input.charAt(input.length - 1));
         if (lkey == 64) {
@@ -137,6 +137,64 @@
         const prefix = new Uint8Array([0x0, 0x1]);
         const clientIdBuf = concatBuffers(prefix, raw);
         return encodeBase64(clientIdBuf);
+      }
+
+      class EventEmitter {
+        listeners = [];
+
+        addEventListener(listener) {
+          this.listeners.push(listener);
+        }
+
+        removeEventListener(listener) {
+          this.listeners = this.listeners.filter((l) => l !== listener);
+        }
+
+        emit(data) {
+          for (const listener of this.listeners) {
+            listener(data);
+          }
+        }
+      }
+
+      /**
+       * A wrapper for WebSocket that also performs a pre-connection
+       * authentication.
+       */
+      class AuthenticatedConnection {
+        _messages = [];
+        _onMessage = new EventEmitter();
+        _connectionState = "authenticating";
+
+        constructor(url, keys, clientIdParam = "client_id") {
+          const u = new URL(url);
+          u.searchParams.set(clientIdParam, clientId);
+          this.url = u.toString();
+          this._connect();
+        }
+
+        _connect() {
+          this._ws = null;
+          this._ws = new WebSocket(this.url);
+          this._ws.addEventListener("open", () => {});
+          this._ws.addEventListener("close", () => {
+            this._connect();
+          });
+          this._ws.addEventListener("error", () => {
+            this._connect();
+          });
+          this._ws.addEventListener("message", (event) => {
+            this._onMessage.emit(event.data);
+          });
+        }
+
+        send(data) {
+          if (!this._ws || this._ws.readyState !== this._ws.OPEN) {
+            this._messages.push(data);
+          } else {
+            this._ws.send(data);
+          }
+        }
       }
 
       (async function () {

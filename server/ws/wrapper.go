@@ -81,17 +81,38 @@ func (w *Wrapper) readLoop() {
 	}
 }
 
+func (w *Wrapper) setWriteDeadline() error {
+	return w.c.SetWriteDeadline(time.Now().Add(writeWait))
+}
+
 func (w *Wrapper) WriteMessage(messageType int, data []byte) error {
 	w.writeMut.Lock()
 	defer w.writeMut.Unlock()
-	w.c.SetWriteDeadline(time.Now().Add(writeWait))
-	return w.c.WriteMessage(messageType, data)
+	err := w.setWriteDeadline()
+	if err != nil {
+		w.Stop()
+		return err
+	}
+	err = w.c.WriteMessage(messageType, data)
+	if err != nil {
+		w.Stop()
+	}
+	return err
 }
 
 func (w *Wrapper) WriteJSON(v interface{}) error {
 	w.writeMut.Lock()
 	defer w.writeMut.Unlock()
-	return w.c.WriteJSON(v)
+	err := w.setWriteDeadline()
+	if err != nil {
+		w.Stop()
+		return err
+	}
+	err = w.c.WriteJSON(v)
+	if err != nil {
+		w.Stop()
+	}
+	return err
 }
 
 func (w *Wrapper) MessagesChannel() <-chan Message {

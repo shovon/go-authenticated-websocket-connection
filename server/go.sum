@@ -8,6 +8,10 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/rs/xid v1.3.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/rs/zerolog v1.26.1 h1:/ihwxqH+4z8UxyI70wM1z9yCvkWcfz/a3mj48k/Zngc=
 github.com/rs/zerolog v1.26.1/go.mod h1:/wSSJWX7lVrsOwlbyTRSOJvqRlc+WjWlfes+CiJ+tmc=
+github.com/shovon/go-stoppable v1.0.1 h1:BLdhGxilIw35Bijzd18ali1BC2/lHdIv43vejx+2o0c=
+github.com/shovon/go-stoppable v1.0.1/go.mod h1:jl58nb6GgPXWahKS6VbSiZM7mxoU3xqMZFmlJe9Its0=
+github.com/shovon/gorillawswrapper v1.0.1 h1:8uj9Bo6Z4s097gO7Crv65Fv7U7gf5oJ55HrEXw9XiZY=
+github.com/shovon/gorillawswrapper v1.0.1/go.mod h1:CaFhcaRAcLbChkO+0KF4EiQ043R5UqaTutgiCbED8ik=
 github.com/yuin/goldmark v1.4.0/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
